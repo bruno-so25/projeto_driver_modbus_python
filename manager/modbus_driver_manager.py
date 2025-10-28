@@ -36,6 +36,7 @@ class ModbusDriverManager:
         # Configuração do watchdog
         self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
         self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
+        self._manual_stop = False
 
     # ----------------------------------------------------------------------
     # Controle principal
@@ -72,9 +73,12 @@ class ModbusDriverManager:
             # Força encerramento da thread do servidor (método indireto)
             try:
                 logger.info("Solicitando parada do servidor Modbus.")
-                self.server._running = False
+                self._manual_stop = True
+                self.server.shutdown()  # encerra socket e loop TCP
                 self.stats["stops"] += 1
+                logger.info("Driver Modbus parado manualmente (API ou terminal).")
                 return True
+
             except Exception as e:
                 self.stats["errors"] += 1
                 logger.error(f"Erro ao parar driver: {e}")
@@ -85,6 +89,7 @@ class ModbusDriverManager:
         logger.info("Reiniciando driver Modbus.")
         self.stop_driver()
         time.sleep(2)
+        self._manual_stop = False
         return self.start_driver()
 
     # ----------------------------------------------------------------------
@@ -98,15 +103,19 @@ class ModbusDriverManager:
         self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self._watchdog_thread.start()
         logger.debug("Watchdog iniciado.")
-
+    
     def _watchdog_loop(self):
-        """Monitora o servidor e reinicia em caso de falha."""
+        """Monitora o servidor e reinicia em caso de falha não intencional."""
         while self._watchdog_active:
             time.sleep(self._watchdog_interval)
             with self._lock:
                 if not self.server or not self.server.is_running():
+                    if self._manual_stop:
+                        logger.debug("Watchdog detectou parada manual. Nenhuma ação necessária.")
+                        continue
                     logger.warning("Watchdog detectou falha. Reiniciando servidor Modbus.")
                     self.restart_driver()
+
 
     # ----------------------------------------------------------------------
     # Status e debug
