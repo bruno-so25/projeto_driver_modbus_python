@@ -9,25 +9,38 @@ Responsável por:
 - Subir a API FastAPI (server_api.py)
 """
 
+import signal
+import sys
 import uvicorn
 from core.logger import logger
 from core.config_loader import load_config
 from manager.modbus_driver_manager import ModbusDriverManager
 from api.server_api import app
 
-if __name__ == "__main__":
+
+def main():
     logger.info("Iniciando serviço principal Modbus Driver.")
 
-    # 1. Carrega configurações
+    # Carrega config e inicializa FastAPI
     cfg = load_config()
     api_host = cfg.get("API", "host", fallback="0.0.0.0")
-    api_port = cfg.getint("API", "port", fallback=5020)
+    api_port = cfg.getint("API", "port", fallback=8000)
 
-    # 2. Cria o gerenciador principal (driver + memória + watchdog)
+    # Cria o gerenciador
     manager = ModbusDriverManager()
-
-    # 3. Injeta o manager dentro da API
     app.state.manager = manager
 
-    # 4. Inicia servidor FastAPI com Uvicorn
+    # Captura sinais do systemd (stop/restart)
+    def handle_shutdown(sig, frame):
+        logger.info(f"Sinal recebido ({sig}). Encerrando serviço.")
+        manager.stop_driver()
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
+
     uvicorn.run(app, host=api_host, port=api_port, log_level="info")
+
+if __name__ == "__main__":
+    main()
+

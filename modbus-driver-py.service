@@ -1,0 +1,30 @@
+[Unit]
+Description=Python Modbus Driver Service
+After=network.target
+
+[Service]
+Type=simple
+
+# --- Usuário do serviço ---
+User=<USUARIO_DO_SERVICO>
+
+# --- Diretório raiz do projeto ---
+# Diretório principal, onde está o arquivo main.py e as pastas: core, api, manager.
+WorkingDirectory=<CAMINHO_PARA_PROJETO>
+
+# --- Caminho do ambiente virtual e ponto de entrada ---
+ExecStart=<CAMINHO_PARA_PROJETO>/bin/python <CAMINHO_PARA_PROJETO>/main.py
+
+# --- Reinício automático em caso de falha ---
+Restart=always
+RestartSec=5
+
+# --- Caminho para logs do systemd ---
+StandardOutput=append:<CAMINHO_PARA_PROJETO>/logs/systemd.log
+StandardError=append:<CAMINHO_PARA_PROJETO>/logs/systemd.log
+
+# --- Garante logs imediatos e ambiente limpo ---
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
