@@ -1,21 +1,24 @@
 """
 core/modbus_server.py
 ---------------------
-Implementa o servidor Modbus TCP usando a biblioteca pymodbus (v3.11+).
+Servidor Modbus TCP síncrono usando pymodbus 3.9.0.
 
-Funções principais:
-- Lê parâmetros do settings.ini (host, port, timeout, etc.)
-- Usa o objeto Memory como backend dos registradores
-- Inicia o servidor Modbus TCP em thread própria
-- Registra logs detalhados de inicialização e erros
+Funções:
+- Lê configurações do settings.ini
+- Mantém registradores em memória via classe Memory
+- Loga leituras, escritas e conexões
+- Expõe estatísticas de clientes (IP, leituras, escritas, tempo de conexão)
 """
 
 from threading import Thread
-from pymodbus.server import StartTcpServer
+from datetime import datetime
+from pymodbus.server.sync import ModbusTcpServer
+from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
+from pymodbus.device import ModbusDeviceIdentification
 from pymodbus.datastore import (
     ModbusServerContext,
-    ModbusDeviceContext,
-    ModbusSparseDataBlock,
+    ModbusSlaveContext,
+    ModbusSequentialDataBlock,
 )
 try:
     from pymodbus.device import ModbusDeviceIdentification
@@ -26,63 +29,62 @@ from core.config_loader import load_config
 from core.memory import Memory
 from core.logger import logger, get_debug_status
 
-from datetime import datetime
-import inspect
 
+# ----------------------------------------------------------------------
+# DataBlock com rastreamento de leituras e escritas
+# ----------------------------------------------------------------------
+class TracedSeqBlock(ModbusSequentialDataBlock):
+    """Intercepta leituras e escritas para logar e atualizar estatísticas."""
 
-class TracedDataBlock(ModbusSparseDataBlock):
-    """
-    Extende ModbusSparseDataBlock para interceptar leituras e escritas.
-    Quando o modo debug estiver ativo, registra as operações no log.
-    """
-    def __init__(self, initial_values, parent_server=None):
-        super().__init__(initial_values)
+    def __init__(self, address, values, parent_server=None):
+        super().__init__(address, values)
         self._server = parent_server
-
-    def _get_client_ip(self):
-        """Tenta identificar o IP do cliente que originou a requisição."""
-        frame = inspect.currentframe()
-        while frame:
-            if "request" in frame.f_locals:
-                req = frame.f_locals["request"]
-                return getattr(req, "client_address", ("unknown", 0))[0]
-            frame = frame.f_back
-        return "unknown"
 
     def getValues(self, address, count=1):
         values = super().getValues(address, count)
         if get_debug_status():
             logger.debug(f"Leitura Modbus: addr={address}, count={count}, values={values}")
-
-        client_ip = self._get_client_ip()
         if self._server:
-            self._server._update_connection_stats(client_ip, is_write=False)
-        
+            self._server._update_connection_stats("unknown", is_write=False)
         return values
 
     def setValues(self, address, values):
         super().setValues(address, values)
         if get_debug_status():
             logger.debug(f"Escrita Modbus: addr={address}, values={values}")
-
-        client_ip = self._get_client_ip()
         if self._server:
-            self._server._update_connection_stats(client_ip, is_write=True)
+            self._server._update_connection_stats("unknown", is_write=True)
 
 
+# ----------------------------------------------------------------------
+# Subclasse do servidor Modbus que captura IPs dos clientes
+# ----------------------------------------------------------------------
+class TrackedModbusTcpServer(ModbusTcpServer):
+    """Intercepta requisições e registra o IP do cliente conectado."""
+    def __init__(self, *args, parent_server=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._parent_server = parent_server
+
+    def process_request(self, request, client_address):
+        """Captura o IP do cliente a cada requisição Modbus."""
+        if self._parent_server and client_address:
+            ip = client_address[0] if isinstance(client_address, tuple) else str(client_address)
+            self._parent_server._register_client_connection(ip)
+        return super().process_request(request, client_address)
+
+
+# ----------------------------------------------------------------------
+# Classe principal do servidor Modbus
+# ----------------------------------------------------------------------
 class ModbusServer(Thread):
-    """
-    Servidor Modbus TCP executado em thread própria.
-    Suporta modo debug controlado via API.
-    """
+    """Servidor Modbus TCP executado em thread própria."""
 
     def __init__(self, memory: Memory):
         super().__init__(daemon=True)
         self._memory = memory
+        self._server_instance = None
         self._running = False
-
-        # Armazena conexões ativas e estatísticas
-        self.connections = {}  
+        self.connections = {}
 
         # Configurações
         self.config = load_config()
@@ -91,22 +93,47 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
-        # Inicialização dos holding registers a partir da Memory
+        # Inicializa blocos de dados
         points = self._memory.all_points()
-        initial_values = {addr: self._memory.read_point(addr)["value"] for addr in range(len(points))}
-        hr_block = TracedDataBlock(initial_values, parent_server=self)  # usa o bloco com tracer
+        initial_values = [self._memory.read_point(addr)["value"] for addr in range(len(points))]
 
-        di_block = ModbusSparseDataBlock({})
-        co_block = ModbusSparseDataBlock({})
-        ir_block = ModbusSparseDataBlock({})
+        hr_block = TracedSeqBlock(0, initial_values, parent_server=self)
+        di_block = ModbusSequentialDataBlock(0, [0])
+        co_block = ModbusSequentialDataBlock(0, [0])
+        ir_block = ModbusSequentialDataBlock(0, [0])
 
-        device_ctx = ModbusDeviceContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
-        self.context = ModbusServerContext(device_ctx, single=True)
+        slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
+        self.context = ModbusServerContext(slaves=slave, single=True)
 
+    # ------------------------------------------------------------------
+
+    # def run(self):
+    #     """Executa o servidor TCP Modbus (modo síncrono)."""
+    #     self._running = True
+    #     try:
+    #         identity = ModbusDeviceIdentification()
+    #         identity.VendorName = self.config.get("DEVICE", "vendor_name", fallback="Generic Vendor")
+    #         identity.ProductCode = self.config.get("DEVICE", "product_code", fallback="GEN")
+    #         identity.VendorUrl = self.config.get("DEVICE", "vendor_url", fallback="http://localhost")
+    #         identity.ProductName = self.config.get("DEVICE", "product_name", fallback="Modbus Driver")
+    #         identity.MajorMinorRevision = self.config.get("DEVICE", "revision", fallback="1.0.0")
+
+    #         self._server_instance = TrackedModbusTcpServer(
+    #             context=self.context,
+    #             identity=identity,
+    #             address=(self.host, self.port),
+    #             parent_server=self,
+    #         )
+    #         logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
+    #         self._server_instance.serve_forever()
+    #     except Exception as e:
+    #         logger.error(f"Erro no servidor Modbus: {e}")
+    #     finally:
+    #         self._running = False
+    #         logger.info("Servidor Modbus finalizado.")
     def run(self):
-        """Executa o servidor TCP Modbus."""
+        """Executa o servidor TCP Modbus (modo síncrono, pymodbus 2.5.3)."""
         self._running = True
-        logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
         try:
             identity = ModbusDeviceIdentification()
             identity.VendorName = self.config.get("DEVICE", "vendor_name", fallback="Generic Vendor")
@@ -115,22 +142,39 @@ class ModbusServer(Thread):
             identity.ProductName = self.config.get("DEVICE", "product_name", fallback="Modbus Driver")
             identity.MajorMinorRevision = self.config.get("DEVICE", "revision", fallback="1.0.0")
 
-            StartTcpServer(
+            self._server_instance = ModbusTcpServer(
                 context=self.context,
                 identity=identity,
                 address=(self.host, self.port),
             )
+            logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
+            self._server_instance.serve_forever()
         except Exception as e:
             logger.error(f"Erro no servidor Modbus: {e}")
         finally:
             self._running = False
             logger.info("Servidor Modbus finalizado.")
 
-    def is_running(self) -> bool:
+    # ------------------------------------------------------------------
+    def shutdown(self):
+        """Encerra o servidor TCP Modbus."""
+        if self._server_instance:
+            try:
+                logger.info("Encerrando Modbus TCP.")
+                self._server_instance.shutdown()
+                self._server_instance.server_close()
+            except Exception as e:
+                logger.error(f"Erro ao encerrar servidor Modbus: {e}")
+        self._running = False
+
+    # ------------------------------------------------------------------
+    def is_running(self):
+        """Retorna se o servidor está ativo."""
         return self._running
 
-    def _update_connection_stats(self, client_ip: str, is_write: bool = False):
-        """Atualiza ou cria estatísticas de conexão por cliente."""
+    # ------------------------------------------------------------------
+    def _register_client_connection(self, client_ip: str):
+        """Registra novo cliente conectado."""
         now = datetime.utcnow()
         if client_ip not in self.connections:
             self.connections[client_ip] = {
@@ -140,6 +184,13 @@ class ModbusServer(Thread):
                 "reads": 0,
                 "writes": 0,
             }
+
+    # ------------------------------------------------------------------
+    def _update_connection_stats(self, client_ip: str, is_write: bool = False):
+        """Atualiza estatísticas de leitura/escrita."""
+        now = datetime.utcnow()
+        if client_ip not in self.connections:
+            self._register_client_connection(client_ip)
         conn = self.connections[client_ip]
         conn["last_seen"] = now
         if is_write:
@@ -148,10 +199,13 @@ class ModbusServer(Thread):
             conn["reads"] += 1
 
 
+# ----------------------------------------------------------------------
+# Execução direta (teste isolado)
+# ----------------------------------------------------------------------
 if __name__ == "__main__":
     mem = Memory(num_registers=10, default_value=0)
     server = ModbusServer(memory=mem)
     server.start()
     input("Servidor Modbus em execução. Pressione ENTER para encerrar...\n")
+    server.shutdown()
     logger.info("Encerrando servidor Modbus (teste local).")
-
