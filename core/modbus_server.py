@@ -86,7 +86,7 @@ class ModbusServer(Thread):
         self._running = False
         self.connections = {}
 
-        # Configurações
+        # Lê as configurações em config/settings.ini
         self.config = load_config()
         self.host = self.config.get("MODBUS", "host", fallback="0.0.0.0")
         self.port = self.config.getint("MODBUS", "port", fallback=5020)
@@ -107,30 +107,6 @@ class ModbusServer(Thread):
 
     # ------------------------------------------------------------------
 
-    # def run(self):
-    #     """Executa o servidor TCP Modbus (modo síncrono)."""
-    #     self._running = True
-    #     try:
-    #         identity = ModbusDeviceIdentification()
-    #         identity.VendorName = self.config.get("DEVICE", "vendor_name", fallback="Generic Vendor")
-    #         identity.ProductCode = self.config.get("DEVICE", "product_code", fallback="GEN")
-    #         identity.VendorUrl = self.config.get("DEVICE", "vendor_url", fallback="http://localhost")
-    #         identity.ProductName = self.config.get("DEVICE", "product_name", fallback="Modbus Driver")
-    #         identity.MajorMinorRevision = self.config.get("DEVICE", "revision", fallback="1.0.0")
-
-    #         self._server_instance = TrackedModbusTcpServer(
-    #             context=self.context,
-    #             identity=identity,
-    #             address=(self.host, self.port),
-    #             parent_server=self,
-    #         )
-    #         logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
-    #         self._server_instance.serve_forever()
-    #     except Exception as e:
-    #         logger.error(f"Erro no servidor Modbus: {e}")
-    #     finally:
-    #         self._running = False
-    #         logger.info("Servidor Modbus finalizado.")
     def run(self):
         """Executa o servidor TCP Modbus (modo síncrono, pymodbus 2.5.3)."""
         self._running = True
