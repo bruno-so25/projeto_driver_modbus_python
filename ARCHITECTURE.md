@@ -9,6 +9,7 @@ O serviço é executado no Ubuntu, isolado em ambiente virtual e gerenciado pelo
 
 ## Estrutura de diretórios
 
+```
 projeto_modbus_driver/
 ├── env/ # Ambiente virtual Python
 ├── config/
@@ -27,3 +28,4 @@ projeto_modbus_driver/
 ├── main.py # Ponto de entrada principal do serviço
 ├── requirements.txt # Dependências do projeto
 └── ARCHITECTURE.md # Descrição e documentação do projeto
+```
