@@ -1,0 +1,154 @@
+"""
+manager/modbus_driver_manager.py
+--------------------------------
+Gerencia o ciclo de vida do servidor Modbus.
+Controla start, stop, restart, status e watchdog automático.
+"""
+
+import threading
+import time
+from datetime import datetime
+from core.memory import Memory
+from core.logger import logger, set_debug, get_debug_status
+from core.modbus_server import ModbusServer
+from core.config_loader import load_config
+
+
+class ModbusDriverManager:
+    """
+    Classe de gerenciamento do driver Modbus.
+    Mantém o servidor, estatísticas e watchdog.
+    """
+
+    def __init__(self):
+        self.cfg = load_config()
+        num_regs = self.cfg.getint("MEMORY", "register_count", fallback=100)
+        def_val = self.cfg.getint("MEMORY", "default_value", fallback=0)
+
+        self.server = None
+        self.memory = Memory(num_registers=num_regs, default_value=def_val)
+        self.start_time = None
+        self._lock = threading.Lock()
+        self.stats = {"starts": 0, "stops": 0, "errors": 0}
+        self._watchdog_active = False
+        self._watchdog_thread = None
+
+        # Configuração do watchdog
+        self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
+        self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
+
+    # ----------------------------------------------------------------------
+    # Controle principal
+    # ----------------------------------------------------------------------
+    def start_driver(self):
+        """Inicia o servidor Modbus."""
+        with self._lock:
+            if self.server and self.server.is_running():
+                logger.warning("Tentativa de iniciar driver já em execução.")
+                return False
+
+            try:
+                self.server = ModbusServer(memory=self.memory)
+                self.server.start()
+                self.start_time = datetime.utcnow()
+                self.stats["starts"] += 1
+                logger.info("Driver Modbus iniciado com sucesso.")
+                if self._watchdog_enabled:
+                    self._start_watchdog()
+                    logger.info("Serviço watchdog iniciado com sucesso.")
+                return True
+            except Exception as e:
+                self.stats["errors"] += 1
+                logger.error(f"Erro ao iniciar driver: {e}")
+                return False
+
+    def stop_driver(self):
+        """Para o servidor Modbus."""
+        with self._lock:
+            if not self.server or not self.server.is_running():
+                logger.warning("Tentativa de parar driver que não está em execução.")
+                return False
+
+            # Força encerramento da thread do servidor (método indireto)
+            try:
+                logger.info("Solicitando parada do servidor Modbus.")
+                self.server._running = False
+                self.stats["stops"] += 1
+                return True
+            except Exception as e:
+                self.stats["errors"] += 1
+                logger.error(f"Erro ao parar driver: {e}")
+                return False
+
+    def restart_driver(self):
+        """Reinicia o servidor."""
+        logger.info("Reiniciando driver Modbus.")
+        self.stop_driver()
+        time.sleep(2)
+        return self.start_driver()
+
+    # ----------------------------------------------------------------------
+    # Watchdog
+    # ----------------------------------------------------------------------
+    def _start_watchdog(self):
+        """Inicia o watchdog em thread separada."""
+        if self._watchdog_active:
+            return
+        self._watchdog_active = True
+        self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
+        self._watchdog_thread.start()
+        logger.debug("Watchdog iniciado.")
+
+    def _watchdog_loop(self):
+        """Monitora o servidor e reinicia em caso de falha."""
+        while self._watchdog_active:
+            time.sleep(self._watchdog_interval)
+            with self._lock:
+                if not self.server or not self.server.is_running():
+                    logger.warning("Watchdog detectou falha. Reiniciando servidor Modbus.")
+                    self.restart_driver()
+
+    # ----------------------------------------------------------------------
+    # Status e debug
+    # ----------------------------------------------------------------------
+    def get_status(self):
+        """Retorna o status atual do driver."""
+        uptime = None
+        if self.start_time:
+            uptime = str(datetime.utcnow() - self.start_time).split(".")[0]
+
+        connections = self.server.connections if self.server else {}
+        status = {
+            "running": self.server.is_running() if self.server else False,
+            "uptime": uptime,
+            "debug": get_debug_status(),
+            "stats": self.stats,
+            "connections": connections,
+        }
+        return status
+
+    def set_debug_mode(self, enable: bool):
+        """Ativa ou desativa modo debug."""
+        set_debug(enable)
+        logger.info(f"Modo debug {'ativado' if enable else 'desativado'}.")
+        return get_debug_status()
+
+
+# ----------------------------------------------------------------------
+# Teste local manual
+# ----------------------------------------------------------------------
+if __name__ == "__main__":
+    manager = ModbusDriverManager()
+    print("Iniciando driver...")
+    manager.start_driver()
+
+    print("Driver em execução. Aguarde alguns segundos ou pressione Ctrl+C para parar.")
+    time.sleep(5)
+
+    print("\nStatus atual:")
+    print(manager.get_status())
+
+    print("\nParando driver...")
+    manager.stop_driver()
+    print("Status final:")
+    print(manager.get_status())
