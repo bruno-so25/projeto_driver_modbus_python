@@ -31,27 +31,62 @@ from core.logger import logger, get_debug_status
 
 
 # ----------------------------------------------------------------------
-# DataBlock com rastreamento de leituras e escritas
+# DataBlocks com rastreamento por área (HR/IR = 16-bit; CO/DI = bit/0-1)
 # ----------------------------------------------------------------------
 class TracedSeqBlock(ModbusSequentialDataBlock):
-    """Intercepta leituras e escritas para logar e atualizar estatísticas."""
-
-    def __init__(self, address, values, parent_server=None):
+    """HR/IR: 16-bit words."""
+    def __init__(self, address, values, parent_server=None, area="HR"):
         super().__init__(address, values)
         self._server = parent_server
+        self._area = area  # "HR" ou "IR"
 
     def getValues(self, address, count=1):
         values = super().getValues(address, count)
         if get_debug_status():
-            logger.debug(f"Leitura Modbus: addr={address}, count={count}, values={values}")
+            logger.debug(f"[{self._area}] READ addr={address}, count={count}, values={values}")
         if self._server:
             self._server._update_connection_stats("unknown", is_write=False)
         return values
 
     def setValues(self, address, values):
+        # IR é somente leitura por definição; ignore se alguém tentar escrever
+        if self._area == "IR":
+            if get_debug_status():
+                logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
+            return
         super().setValues(address, values)
         if get_debug_status():
-            logger.debug(f"Escrita Modbus: addr={address}, values={values}")
+            logger.debug(f"[{self._area}] WRITE addr={address}, values={values}")
+        if self._server:
+            self._server._update_connection_stats("unknown", is_write=True)
+
+
+class TracedBitBlock(ModbusSequentialDataBlock):
+    """CO/DI: bits 0/1 representados como inteiros 0/1."""
+    def __init__(self, address, values, parent_server=None, area="CO"):
+        super().__init__(address, values)
+        self._server = parent_server
+        self._area = area  # "CO" ou "DI"
+
+    def getValues(self, address, count=1):
+        values = super().getValues(address, count)
+        if get_debug_status():
+            logger.debug(f"[{self._area}] READ addr={address}, count={count}, values={values}")
+        if self._server:
+            self._server._update_connection_stats("unknown", is_write=False)
+        return values
+
+    def setValues(self, address, values):
+        # DI é somente leitura; ignore escrita
+        if self._area == "DI":
+            if get_debug_status():
+                logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
+            return
+        # normaliza para 0/1
+        norm = [1 if int(v) else 0 for v in values]
+        super().setValues(address, norm)
+        if get_debug_status():
+            logger.debug(f"[{self._area}] WRITE addr={address}, values={norm}")
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
@@ -93,14 +128,36 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
-        # Inicializa blocos de dados
-        points = self._memory.all_points()
-        initial_values = [self._memory.read_point(addr)["value"] for addr in range(len(points))]
+        # Tamanhos por área (podem vir do settings.ini no futuro)
+        hr_count = self.config.getint("MEMORY", "hr_count", fallback=None)
+        co_count = self.config.getint("MEMORY", "coil_count", fallback=0)
+        di_count = self.config.getint("MEMORY", "di_count",   fallback=0)
+        ir_count = self.config.getint("MEMORY", "ir_count",   fallback=0)
 
-        hr_block = TracedSeqBlock(0, initial_values, parent_server=self)
-        di_block = ModbusSequentialDataBlock(0, [0])
-        co_block = ModbusSequentialDataBlock(0, [0])
-        ir_block = ModbusSequentialDataBlock(0, [0])
+        # ------------------------------------------------------------
+        # Inicializa blocos a partir da memória compartilhada (Memory)
+        # ------------------------------------------------------------
+        def extract_values(area, count):
+            """Extrai valores de uma área específica da Memory."""
+            block = self._memory.all_points(area)
+            values = [block[i]["value"] for i in range(len(block))]
+            # Ajusta tamanho conforme config
+            if count > len(values):
+                values += [0] * (count - len(values))
+            elif count < len(values):
+                values = values[:count]
+            return values or [0]  # nunca vazio
+
+        hr_values = extract_values("HR", hr_count)
+        co_values = extract_values("CO", co_count)
+        di_values = extract_values("DI", di_count)
+        ir_values = extract_values("IR", ir_count)
+
+        # Blocos com tracer por área
+        hr_block = TracedSeqBlock(0, hr_values, parent_server=self, area="HR")
+        ir_block = TracedSeqBlock(0, ir_values, parent_server=self, area="IR")
+        co_block = TracedBitBlock(0, co_values, parent_server=self, area="CO")
+        di_block = TracedBitBlock(0, di_values, parent_server=self, area="DI")
 
         slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
         self.context = ModbusServerContext(slaves=slave, single=True)
@@ -179,7 +236,7 @@ class ModbusServer(Thread):
 # Execução direta (teste isolado)
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
-    mem = Memory(num_registers=10, default_value=0)
+    mem = Memory(hr_count=10, co_count=5, di_count=5, ir_count=5, default_value=0)
     server = ModbusServer(memory=mem)
     server.start()
     input("Servidor Modbus em execução. Pressione ENTER para encerrar...\n")
