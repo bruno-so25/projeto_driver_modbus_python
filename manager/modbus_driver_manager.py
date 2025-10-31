@@ -21,34 +21,12 @@ class ModbusDriverManager:
     """
 
     def __init__(self):
-        self.cfg = load_config()
-
-        # --- Parâmetros de memória ---
-        hr_count = self.cfg.getint("MEMORY", "hr_count", fallback=100)
-        co_count = self.cfg.getint("MEMORY", "coil_count", fallback=0)
-        di_count = self.cfg.getint("MEMORY", "di_count", fallback=0)
-        ir_count = self.cfg.getint("MEMORY", "ir_count", fallback=0)
-        def_val = self.cfg.getint("MEMORY", "default_value", fallback=0)
-
         self.server = None
-        self.memory = Memory(
-            hr_count=hr_count,
-            co_count=co_count,
-            di_count=di_count,
-            ir_count=ir_count,
-            default_value=def_val,
-        )
-
         self.start_time = None
         self._lock = threading.Lock()
         self.stats = {"starts": 0, "stops": 0, "errors": 0}
         self._watchdog_active = False
         self._watchdog_thread = None
-
-        # Configuração do watchdog
-        self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
-        self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
-        self._manual_stop = False
 
     # ----------------------------------------------------------------------
     # Controle principal
@@ -59,6 +37,29 @@ class ModbusDriverManager:
             if self.server and self.server.is_running():
                 logger.warning("Tentativa de iniciar driver já em execução.")
                 return False
+            
+            #Lê as configurações do arquivo settings.ini
+            self.cfg = load_config()
+
+            # --- Parâmetros de memória ---
+            hr_count = self.cfg.getint("MEMORY", "hr_count", fallback=100)
+            co_count = self.cfg.getint("MEMORY", "coil_count", fallback=0)
+            di_count = self.cfg.getint("MEMORY", "di_count", fallback=0)
+            ir_count = self.cfg.getint("MEMORY", "ir_count", fallback=0)
+            def_val = self.cfg.getint("MEMORY", "default_value", fallback=0)
+
+            self.memory = Memory(
+                hr_count=hr_count,
+                co_count=co_count,
+                di_count=di_count,
+                ir_count=ir_count,
+                default_value=def_val,
+            )
+
+            # Configuração do watchdog
+            self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
+            self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
+            self._manual_stop = False
 
             try:
                 self.server = ModbusServer(memory=self.memory)

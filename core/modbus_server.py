@@ -54,9 +54,20 @@ class TracedSeqBlock(ModbusSequentialDataBlock):
             if get_debug_status():
                 logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
             return
+
+        # --- NOVO BLOCO: sincroniza com Memory central ---
+        if self._server and hasattr(self._server, "_memory"):
+            for i, v in enumerate(values):
+                try:
+                    self._server._memory.write_point(address + i, v, self._area)
+                except Exception as e:
+                    logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
+        
         super().setValues(address, values)
+
         if get_debug_status():
             logger.debug(f"[{self._area}] WRITE addr={address}, values={values}")
+
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
@@ -82,11 +93,23 @@ class TracedBitBlock(ModbusSequentialDataBlock):
             if get_debug_status():
                 logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
             return
+
         # normaliza para 0/1
         norm = [1 if int(v) else 0 for v in values]
+        
+        # --- NOVO BLOCO: sincroniza com Memory central ---
+        if self._server and hasattr(self._server, "_memory"):
+            for i, v in enumerate(norm):
+                try:
+                    self._server._memory.write_point(address + i, v, self._area)
+                except Exception as e:
+                    logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
+
         super().setValues(address, norm)
+
         if get_debug_status():
             logger.debug(f"[{self._area}] WRITE addr={address}, values={norm}")
+
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
@@ -128,11 +151,11 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
-        # Tamanhos por área (podem vir do settings.ini no futuro)
-        hr_count = self.config.getint("MEMORY", "hr_count", fallback=None)
-        co_count = self.config.getint("MEMORY", "coil_count", fallback=0)
-        di_count = self.config.getint("MEMORY", "di_count",   fallback=0)
-        ir_count = self.config.getint("MEMORY", "ir_count",   fallback=0)
+        # Tamanhos por área
+        hr_count = len(self._memory.holding)
+        co_count = len(self._memory.coils)
+        di_count = len(self._memory.discrete_inputs)
+        ir_count = len(self._memory.input_registers)
 
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
@@ -148,10 +171,22 @@ class ModbusServer(Thread):
                 values = values[:count]
             return values or [0]  # nunca vazio
 
-        hr_values = extract_values("HR", hr_count)
-        co_values = extract_values("CO", co_count)
-        di_values = extract_values("DI", di_count)
-        ir_values = extract_values("IR", ir_count)
+        # hr_values = extract_values("HR", hr_count)
+        # co_values = extract_values("CO", co_count)
+        # di_values = extract_values("DI", di_count)
+        # ir_values = extract_values("IR", ir_count)
+
+        # Blocos com tracer por área, carregando diretamente da Memory correta
+        hr_values = [v["value"] for v in self._memory.all_points("HR").values()]
+        ir_values = [v["value"] for v in self._memory.all_points("IR").values()]
+        co_values = [v["value"] for v in self._memory.all_points("CO").values()]
+        di_values = [v["value"] for v in self._memory.all_points("DI").values()]
+
+        # Evita blocos vazios
+        hr_values = hr_values or [0]
+        ir_values = ir_values or [0]
+        co_values = co_values or [0]
+        di_values = di_values or [0]
 
         # Blocos com tracer por área
         hr_block = TracedSeqBlock(0, hr_values, parent_server=self, area="HR")
