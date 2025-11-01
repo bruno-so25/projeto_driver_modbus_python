@@ -21,34 +21,12 @@ class ModbusDriverManager:
     """
 
     def __init__(self):
-        self.cfg = load_config()
-
-        # --- Parâmetros de memória ---
-        hr_count = self.cfg.getint("MEMORY", "hr_count", fallback=100)
-        co_count = self.cfg.getint("MEMORY", "coil_count", fallback=0)
-        di_count = self.cfg.getint("MEMORY", "di_count", fallback=0)
-        ir_count = self.cfg.getint("MEMORY", "ir_count", fallback=0)
-        def_val = self.cfg.getint("MEMORY", "default_value", fallback=0)
-
         self.server = None
-        self.memory = Memory(
-            hr_count=hr_count,
-            co_count=co_count,
-            di_count=di_count,
-            ir_count=ir_count,
-            default_value=def_val,
-        )
-
         self.start_time = None
         self._lock = threading.Lock()
         self.stats = {"starts": 0, "stops": 0, "errors": 0}
         self._watchdog_active = False
         self._watchdog_thread = None
-
-        # Configuração do watchdog
-        self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
-        self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
-        self._manual_stop = False
 
     # ----------------------------------------------------------------------
     # Controle principal
@@ -59,10 +37,64 @@ class ModbusDriverManager:
             if self.server and self.server.is_running():
                 logger.warning("Tentativa de iniciar driver já em execução.")
                 return False
+            
+            #Lê as configurações do arquivo settings.ini
+            self.cfg = load_config()
+
+            # --- Parâmetros de memória ---
+            hr_count = self.cfg.getint("MEMORY", "hr_count", fallback=100)
+            co_count = self.cfg.getint("MEMORY", "coil_count", fallback=0)
+            di_count = self.cfg.getint("MEMORY", "di_count", fallback=0)
+            ir_count = self.cfg.getint("MEMORY", "ir_count", fallback=0)
+            def_val = self.cfg.getint("MEMORY", "default_value", fallback=0)
+
+            self.memory = Memory(
+                hr_count=hr_count,
+                co_count=co_count,
+                di_count=di_count,
+                ir_count=ir_count,
+                default_value=def_val,
+            )
+
+            # Configuração do watchdog
+            self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
+            self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
+            self._manual_stop = False
 
             try:
+                logger.info("Iniciando Servidor Modbus.")
                 self.server = ModbusServer(memory=self.memory)
                 self.server.start()
+
+                # --- Aguarda inicialização da thread ---
+                import time
+                timeout = time.time() + 3  # até 3 segundos
+                while time.time() < timeout:
+                    if self.server._startup_error:
+                        break
+                    if self.server.is_running():
+                        break
+                    time.sleep(0.1)
+
+                # --- Avalia resultado ---
+                if self.server._startup_error:
+                    err = self.server._startup_error
+                    self.stats["errors"] += 1
+                    self.server.shutdown()
+                    self.server = None
+                    return False
+
+                if not self.server.is_running():
+                    self.stats["errors"] += 1
+                    logger.error("Servidor Modbus não iniciou dentro do tempo limite. Encerrando thread por segurança.")
+                    try:
+                        self.server.shutdown()
+                    except Exception as e:
+                        logger.debug(f"Falha ao encerrar servidor após timeout: {e}")
+                    self.server = None
+                    return False
+
+                # --- Sucesso ---
                 self.start_time = datetime.utcnow()
                 self.stats["starts"] += 1
                 logger.info("Driver Modbus iniciado com sucesso.")
@@ -70,6 +102,7 @@ class ModbusDriverManager:
                     self._start_watchdog()
                     logger.info("Serviço watchdog iniciado com sucesso.")
                 return True
+
             except Exception as e:
                 self.stats["errors"] += 1
                 logger.error(f"Erro ao iniciar driver: {e}")

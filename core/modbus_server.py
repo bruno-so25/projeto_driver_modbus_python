@@ -54,9 +54,22 @@ class TracedSeqBlock(ModbusSequentialDataBlock):
             if get_debug_status():
                 logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
             return
+
+        # --- NOVO BLOCO: sincroniza com Memory central ---
+        if self._server and hasattr(self._server, "_memory"):
+            #base = getattr(self, "address", 0)
+            for i, v in enumerate(values):
+                try:
+                    abs_addr = address + i - 1
+                    self._server._memory.write_point(abs_addr, v, self._area)
+                except Exception as e:
+                    logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
+        
         super().setValues(address, values)
+
         if get_debug_status():
             logger.debug(f"[{self._area}] WRITE addr={address}, values={values}")
+
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
@@ -82,11 +95,25 @@ class TracedBitBlock(ModbusSequentialDataBlock):
             if get_debug_status():
                 logger.debug(f"[{self._area}] WRITE IGNORED addr={address}, values={values}")
             return
+
         # normaliza para 0/1
         norm = [1 if int(v) else 0 for v in values]
+        
+        # --- NOVO BLOCO: sincroniza com Memory central ---
+        if self._server and hasattr(self._server, "_memory"):
+            #base = getattr(self, "address", 0)
+            for i, v in enumerate(norm):
+                try:
+                    abs_addr = address + i - 1
+                    self._server._memory.write_point(abs_addr, v, self._area)
+                except Exception as e:
+                    logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
+
         super().setValues(address, norm)
+
         if get_debug_status():
             logger.debug(f"[{self._area}] WRITE addr={address}, values={norm}")
+
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
@@ -116,6 +143,9 @@ class ModbusServer(Thread):
 
     def __init__(self, memory: Memory):
         super().__init__(daemon=True)
+
+        self._startup_error = None   # armazena exceção de inicialização
+
         self._memory = memory
         self._server_instance = None
         self._running = False
@@ -128,36 +158,33 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
-        # Tamanhos por área (podem vir do settings.ini no futuro)
-        hr_count = self.config.getint("MEMORY", "hr_count", fallback=None)
-        co_count = self.config.getint("MEMORY", "coil_count", fallback=0)
-        di_count = self.config.getint("MEMORY", "di_count",   fallback=0)
-        ir_count = self.config.getint("MEMORY", "ir_count",   fallback=0)
+        # Tamanhos por área
+        hr_count = len(self._memory.holding)
+        co_count = len(self._memory.coils)
+        di_count = len(self._memory.discrete_inputs)
+        ir_count = len(self._memory.input_registers)
 
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
         # ------------------------------------------------------------
-        def extract_values(area, count):
-            """Extrai valores de uma área específica da Memory."""
-            block = self._memory.all_points(area)
-            values = [block[i]["value"] for i in range(len(block))]
-            # Ajusta tamanho conforme config
-            if count > len(values):
-                values += [0] * (count - len(values))
-            elif count < len(values):
-                values = values[:count]
-            return values or [0]  # nunca vazio
 
-        hr_values = extract_values("HR", hr_count)
-        co_values = extract_values("CO", co_count)
-        di_values = extract_values("DI", di_count)
-        ir_values = extract_values("IR", ir_count)
+        # Blocos com tracer por área, carregando diretamente da Memory correta
+        hr_values = [v["value"] for v in self._memory.all_points("HR").values()]
+        ir_values = [v["value"] for v in self._memory.all_points("IR").values()]
+        co_values = [v["value"] for v in self._memory.all_points("CO").values()]
+        di_values = [v["value"] for v in self._memory.all_points("DI").values()]
+
+        # Evita blocos vazios
+        hr_values = hr_values or [0]
+        ir_values = ir_values or [0]
+        co_values = co_values or [0]
+        di_values = di_values or [0]
 
         # Blocos com tracer por área
-        hr_block = TracedSeqBlock(0, hr_values, parent_server=self, area="HR")
-        ir_block = TracedSeqBlock(0, ir_values, parent_server=self, area="IR")
-        co_block = TracedBitBlock(0, co_values, parent_server=self, area="CO")
-        di_block = TracedBitBlock(0, di_values, parent_server=self, area="DI")
+        hr_block = TracedSeqBlock(1, hr_values, parent_server=self, area="HR")
+        ir_block = TracedSeqBlock(1, ir_values, parent_server=self, area="IR")
+        co_block = TracedBitBlock(1, co_values, parent_server=self, area="CO")
+        di_block = TracedBitBlock(1, di_values, parent_server=self, area="DI")
 
         slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
         self.context = ModbusServerContext(slaves=slave, single=True)
@@ -166,7 +193,6 @@ class ModbusServer(Thread):
 
     def run(self):
         """Executa o servidor TCP Modbus (modo síncrono, pymodbus 2.5.3)."""
-        self._running = True
         try:
             identity = ModbusDeviceIdentification()
             identity.VendorName = self.config.get("DEVICE", "vendor_name", fallback="Generic Vendor")
@@ -180,9 +206,14 @@ class ModbusServer(Thread):
                 identity=identity,
                 address=(self.host, self.port),
             )
-            logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
+            
+            # Só muda pra True após conseguir instanciar o ModbusTcpServer
+            self._running = True
+            logger.info(f"Modbus Server iniciado em {self.host}:{self.port}")
+
             self._server_instance.serve_forever()
         except Exception as e:
+            self._startup_error = e   # <-- sinaliza erro
             logger.error(f"Erro no servidor Modbus: {e}")
         finally:
             self._running = False
