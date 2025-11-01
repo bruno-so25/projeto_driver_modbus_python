@@ -57,9 +57,11 @@ class TracedSeqBlock(ModbusSequentialDataBlock):
 
         # --- NOVO BLOCO: sincroniza com Memory central ---
         if self._server and hasattr(self._server, "_memory"):
+            #base = getattr(self, "address", 0)
             for i, v in enumerate(values):
                 try:
-                    self._server._memory.write_point(address + i, v, self._area)
+                    abs_addr = address + i - 1
+                    self._server._memory.write_point(abs_addr, v, self._area)
                 except Exception as e:
                     logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
         
@@ -99,9 +101,11 @@ class TracedBitBlock(ModbusSequentialDataBlock):
         
         # --- NOVO BLOCO: sincroniza com Memory central ---
         if self._server and hasattr(self._server, "_memory"):
+            #base = getattr(self, "address", 0)
             for i, v in enumerate(norm):
                 try:
-                    self._server._memory.write_point(address + i, v, self._area)
+                    abs_addr = address + i - 1
+                    self._server._memory.write_point(abs_addr, v, self._area)
                 except Exception as e:
                     logger.debug(f"Falha ao sincronizar {self._area}[{address+i}] -> {e}")
 
@@ -189,10 +193,10 @@ class ModbusServer(Thread):
         di_values = di_values or [0]
 
         # Blocos com tracer por área
-        hr_block = TracedSeqBlock(0, hr_values, parent_server=self, area="HR")
-        ir_block = TracedSeqBlock(0, ir_values, parent_server=self, area="IR")
-        co_block = TracedBitBlock(0, co_values, parent_server=self, area="CO")
-        di_block = TracedBitBlock(0, di_values, parent_server=self, area="DI")
+        hr_block = TracedSeqBlock(1, hr_values, parent_server=self, area="HR")
+        ir_block = TracedSeqBlock(1, ir_values, parent_server=self, area="IR")
+        co_block = TracedBitBlock(1, co_values, parent_server=self, area="CO")
+        di_block = TracedBitBlock(1, di_values, parent_server=self, area="DI")
 
         slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
         self.context = ModbusServerContext(slaves=slave, single=True)

@@ -15,19 +15,27 @@ from core.logger import logger
 
 app = FastAPI(title="Modbus Driver API", version="1.0.0")
 
-# Instância global do gerenciador
-manager = ModbusDriverManager()
+
+def get_manager():
+    m = getattr(app.state, "manager", None)
+    if not m:
+        raise HTTPException(status_code=500, detail="Manager não inicializado")
+    return m
+# # Instância global do gerenciador
+# manager = ModbusDriverManager()
 
 @app.get("/status")
 def get_status():
     """Retorna o status atual do driver."""
-    status = manager.get_status()
+    m = get_manager()
+    status = m.get_status()
     return JSONResponse(content=jsonable_encoder(status))
 
 @app.post("/start")
 def start_driver():
     """Inicia o driver Modbus."""
-    ok = manager.start_driver()
+    m = get_manager()
+    ok = m.start_driver()
     if ok:
         return {"message": "Driver iniciado com sucesso."}
     return JSONResponse(status_code=400, content={"error": "Falha ao iniciar driver."})
@@ -35,7 +43,8 @@ def start_driver():
 @app.post("/stop")
 def stop_driver():
     """Para o driver Modbus."""
-    ok = manager.stop_driver()
+    m = get_manager()
+    ok = m.stop_driver()
     if ok:
         return {"message": "Driver parado com sucesso."}
     return JSONResponse(status_code=400, content={"error": "Falha ao parar driver."})
@@ -43,7 +52,8 @@ def stop_driver():
 @app.post("/restart")
 def restart_driver():
     """Reinicia o driver Modbus."""
-    ok = manager.restart_driver()
+    m = get_manager()
+    ok = m.restart_driver()
     if ok:
         return {"message": "Driver reiniciado com sucesso."}
     return JSONResponse(status_code=400, content={"error": "Falha ao reiniciar driver."})
@@ -51,13 +61,15 @@ def restart_driver():
 @app.post("/debug/on")
 def enable_debug():
     """Ativa modo debug."""
-    manager.set_debug_mode(True)
+    m = get_manager()
+    m.set_debug_mode(True)
     return {"message": "Modo debug ativado."}
 
 @app.post("/debug/off")
 def disable_debug():
     """Desativa modo debug."""
-    manager.set_debug_mode(False)
+    m = get_manager()
+    m.set_debug_mode(False)
     return {"message": "Modo debug desativado."}
 
 # --------------------------------------------------------------
@@ -70,16 +82,17 @@ def get_points(area: str = Query(default="HR"), address: int = Query(default=Non
     - area: HR, CO, DI, IR
     - address: opcional; se informado, retorna apenas o ponto.
     """
-    if not manager.server or not manager.server.is_running():
+    m = get_manager()
+    if not m.server or not m.server.is_running():
         return JSONResponse(status_code=503, content={"error": "Driver Modbus não está em execução"})
     try:
         if address is not None:
-            point = manager.memory.read_point(address, area)
+            point = m.memory.read_point(address, area)
             if not point:
                 return JSONResponse(status_code=404, content={"error": f"Endereço {address} não encontrado em {area}"})
             return {"area": area, "address": address, **point}
         else:
-            points = manager.memory.all_points(area)
+            points = m.memory.all_points(area)
             return {"area": area, "points": points}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -99,14 +112,24 @@ def set_point(data: dict = Body(...)):
         "value": 123
     }
     """
-    if not manager.server or not manager.server.is_running():
+    m = get_manager()
+    if not m.server or not m.server.is_running():
         return JSONResponse(status_code=503, content={"error": "Driver Modbus não está em execução"})
     try:
         area = data.get("area", "HR").upper()
         address = int(data["address"])
         value = int(data["value"])
 
-        manager.memory.write_point(address, value, area)
+        # Atualiza o DataBlock Modbus que consequentemente sincroniza a Memory
+        ctx = m.server.context
+        if ctx:
+            slave = ctx[0] if hasattr(ctx, "__getitem__") else ctx
+            if area == "HR":
+                slave.setValues(3, address, [value])
+            elif area == "CO":
+                slave.setValues(1, address, [value])
+            # IR e DI são somente leitura, não atualizam. Se tentar escrever em IR/DI é levantado um PermissionError na Memory
+        
         logger.info(f"API: escrita em {area}[{address}] = {value}")
         return {"status": "OK", "message": f"{area}[{address}] atualizado para {value}"}
 
