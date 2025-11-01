@@ -62,8 +62,39 @@ class ModbusDriverManager:
             self._manual_stop = False
 
             try:
+                logger.info("Iniciando Servidor Modbus.")
                 self.server = ModbusServer(memory=self.memory)
                 self.server.start()
+
+                # --- Aguarda inicialização da thread ---
+                import time
+                timeout = time.time() + 3  # até 3 segundos
+                while time.time() < timeout:
+                    if self.server._startup_error:
+                        break
+                    if self.server.is_running():
+                        break
+                    time.sleep(0.1)
+
+                # --- Avalia resultado ---
+                if self.server._startup_error:
+                    err = self.server._startup_error
+                    self.stats["errors"] += 1
+                    self.server.shutdown()
+                    self.server = None
+                    return False
+
+                if not self.server.is_running():
+                    self.stats["errors"] += 1
+                    logger.error("Servidor Modbus não iniciou dentro do tempo limite. Encerrando thread por segurança.")
+                    try:
+                        self.server.shutdown()
+                    except Exception as e:
+                        logger.debug(f"Falha ao encerrar servidor após timeout: {e}")
+                    self.server = None
+                    return False
+
+                # --- Sucesso ---
                 self.start_time = datetime.utcnow()
                 self.stats["starts"] += 1
                 logger.info("Driver Modbus iniciado com sucesso.")
@@ -71,6 +102,7 @@ class ModbusDriverManager:
                     self._start_watchdog()
                     logger.info("Serviço watchdog iniciado com sucesso.")
                 return True
+
             except Exception as e:
                 self.stats["errors"] += 1
                 logger.error(f"Erro ao iniciar driver: {e}")

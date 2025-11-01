@@ -143,6 +143,9 @@ class ModbusServer(Thread):
 
     def __init__(self, memory: Memory):
         super().__init__(daemon=True)
+
+        self._startup_error = None   # armazena exceção de inicialização
+
         self._memory = memory
         self._server_instance = None
         self._running = False
@@ -190,7 +193,6 @@ class ModbusServer(Thread):
 
     def run(self):
         """Executa o servidor TCP Modbus (modo síncrono, pymodbus 2.5.3)."""
-        self._running = True
         try:
             identity = ModbusDeviceIdentification()
             identity.VendorName = self.config.get("DEVICE", "vendor_name", fallback="Generic Vendor")
@@ -204,9 +206,14 @@ class ModbusServer(Thread):
                 identity=identity,
                 address=(self.host, self.port),
             )
-            logger.info(f"Iniciando Modbus Server em {self.host}:{self.port}")
+            
+            # Só muda pra True após conseguir instanciar o ModbusTcpServer
+            self._running = True
+            logger.info(f"Modbus Server iniciado em {self.host}:{self.port}")
+
             self._server_instance.serve_forever()
         except Exception as e:
+            self._startup_error = e   # <-- sinaliza erro
             logger.error(f"Erro no servidor Modbus: {e}")
         finally:
             self._running = False
