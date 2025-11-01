@@ -9,7 +9,7 @@ from fastapi import FastAPI, Query, Body, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 import uvicorn
-
+from datetime import datetime
 from manager.modbus_driver_manager import ModbusDriverManager
 from core.logger import logger
 
@@ -97,6 +97,38 @@ def get_points(area: str = Query(default="HR"), address: int = Query(default=Non
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# ----------------------------------------------------------------------
+# 🔸 Leitura de memória a partir de um timestamp específico (por área)
+# ----------------------------------------------------------------------
+def parse_iso8601_local(s: str) -> datetime:
+    s = s.strip()
+    # se o usuário colocou 'Z' ou offset explícito, respeita
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s)
+    dt = datetime.fromisoformat(s)
+    # se não tem fuso (usuário digitou hora local), assume fuso do sistema
+    if dt.tzinfo is None:
+        dt = dt.astimezone()  # converte para datetime local-aware
+    return dt
+
+@app.get("/points/changed")
+def get_changed_points(
+    area: str = Query(default="HR"),
+    since: str = Query(..., description="ISO datetime, ex: 2025-11-01T03:00:00Z")
+):
+    m = get_manager()
+    if not m.server or not m.server.is_running():
+        return JSONResponse(status_code=503, content={"error": "Driver Modbus não está em execução"})
+
+    try:
+        ts = parse_iso8601_local(since)
+        changed = m.memory.changed_points(ts, area.upper())
+
+        return { "area": area, "changed": changed }
+
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 # --------------------------------------------------------------
 # 🔸 Escrita de memória (HR ou CO)

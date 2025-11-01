@@ -164,21 +164,6 @@ class ModbusServer(Thread):
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
         # ------------------------------------------------------------
-        def extract_values(area, count):
-            """Extrai valores de uma área específica da Memory."""
-            block = self._memory.all_points(area)
-            values = [block[i]["value"] for i in range(len(block))]
-            # Ajusta tamanho conforme config
-            if count > len(values):
-                values += [0] * (count - len(values))
-            elif count < len(values):
-                values = values[:count]
-            return values or [0]  # nunca vazio
-
-        # hr_values = extract_values("HR", hr_count)
-        # co_values = extract_values("CO", co_count)
-        # di_values = extract_values("DI", di_count)
-        # ir_values = extract_values("IR", ir_count)
 
         # Blocos com tracer por área, carregando diretamente da Memory correta
         hr_values = [v["value"] for v in self._memory.all_points("HR").values()]

@@ -8,7 +8,7 @@ Os valores são voláteis (RAM). Essa estrutura será acessada
 tanto pelo servidor Modbus quanto pela API e pelo Manager.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from threading import Lock
 
@@ -44,7 +44,7 @@ class Memory:
                 addr: {
                     "value": default_value,
                     "quality": PointQuality.UNKNOWN,
-                    "timestamp": datetime.utcnow(),
+                    "timestamp": datetime.now().astimezone(),
                 }
                 for addr in range(count)
             }
@@ -84,7 +84,7 @@ class Memory:
                 raise KeyError(f"Endereço inválido: {address}")
             table[address]["value"] = value
             table[address]["quality"] = PointQuality.OK
-            table[address]["timestamp"] = datetime.utcnow()
+            table[address]["timestamp"] = datetime.now().astimezone()
 
     def set_quality(self, address: int, quality: PointQuality, area: str = "HR"):
         """Altera a qualidade de um ponto."""
@@ -92,7 +92,7 @@ class Memory:
             table = self._get_table(area)
             if address in table:
                 table[address]["quality"] = quality
-                table[address]["timestamp"] = datetime.utcnow()
+                table[address]["timestamp"] = datetime.now().astimezone()
 
     def all_points(self, area: str = "HR"):
         """Retorna uma cópia dos pontos atuais de uma área."""
