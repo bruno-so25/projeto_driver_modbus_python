@@ -239,7 +239,7 @@ class ModbusServer(Thread):
     # ------------------------------------------------------------------
     def _register_client_connection(self, client_ip: str):
         """Registra novo cliente conectado."""
-        now = datetime.utcnow()
+        now = datetime.now().astimezone()
         if client_ip not in self.connections:
             self.connections[client_ip] = {
                 "ip": client_ip,
@@ -252,7 +252,7 @@ class ModbusServer(Thread):
     # ------------------------------------------------------------------
     def _update_connection_stats(self, client_ip: str, is_write: bool = False):
         """Atualiza estatísticas de leitura/escrita."""
-        now = datetime.utcnow()
+        now = datetime.now().astimezone()
         if client_ip not in self.connections:
             self._register_client_connection(client_ip)
         conn = self.connections[client_ip]
