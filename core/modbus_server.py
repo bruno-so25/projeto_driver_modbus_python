@@ -192,7 +192,8 @@ class ModbusServer(Thread):
         di_block = TracedBitBlock(1, di_values, parent_server=self, area="DI")
 
         slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
-        self.context = ModbusServerContext(slaves=slave, single=True)
+        self.context = ModbusServerContext(slaves={self.unit_id: slave}, single=False)
+        logger.info(f"Servidor Modbus configurado com Unit ID = {self.unit_id}")
 
     # ------------------------------------------------------------------
 
