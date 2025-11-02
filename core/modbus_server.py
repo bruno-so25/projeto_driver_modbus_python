@@ -28,6 +28,7 @@ except ModuleNotFoundError:
 from core.config_loader import load_config
 from core.memory import Memory
 from core.logger import logger, get_debug_status
+import socketserver
 
 
 # ----------------------------------------------------------------------
@@ -135,6 +136,16 @@ class TrackedModbusTcpServer(ModbusTcpServer):
         return super().process_request(request, client_address)
 
 
+
+# ---------------------------------------------------------------------------
+# SubClasse de ModbusTcpServer com SO_REUSEADDR ativo.
+# Permite reutilizar endereço após ele ser fechado, sem esperar o TIME_WAIT
+# ---------------------------------------------------------------------------
+class ReusableModbusTcpServer(ModbusTcpServer):
+    def server_bind(self):
+        self.socket.setsockopt(socketserver.socket.SOL_SOCKET, socketserver.socket.SO_REUSEADDR, 1)
+        super().server_bind()
+
 # ----------------------------------------------------------------------
 # Classe principal do servidor Modbus
 # ----------------------------------------------------------------------
@@ -157,12 +168,6 @@ class ModbusServer(Thread):
         self.port = self.config.getint("MODBUS", "port", fallback=5020)
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
-
-        # Tamanhos por área
-        hr_count = len(self._memory.holding)
-        co_count = len(self._memory.coils)
-        di_count = len(self._memory.discrete_inputs)
-        ir_count = len(self._memory.input_registers)
 
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
@@ -201,7 +206,7 @@ class ModbusServer(Thread):
             identity.ProductName = self.config.get("DEVICE", "product_name", fallback="Modbus Driver")
             identity.MajorMinorRevision = self.config.get("DEVICE", "revision", fallback="1.0.0")
 
-            self._server_instance = ModbusTcpServer(
+            self._server_instance = ReusableModbusTcpServer(
                 context=self.context,
                 identity=identity,
                 address=(self.host, self.port),
