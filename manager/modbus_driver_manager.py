@@ -148,18 +148,28 @@ class ModbusDriverManager:
         self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self._watchdog_thread.start()
         logger.debug("Watchdog iniciado.")
-    
+
     def _watchdog_loop(self):
         """Monitora o servidor e reinicia em caso de falha não intencional."""
         while self._watchdog_active:
             time.sleep(self._watchdog_interval)
+
+            # Verifica sob lock
+            restart_needed = False
             with self._lock:
                 if not self.server or not self.server.is_running():
                     if self._manual_stop:
                         logger.debug("Watchdog detectou parada manual. Nenhuma ação necessária.")
                         continue
                     logger.warning("Watchdog detectou falha. Reiniciando servidor Modbus.")
+                    restart_needed = True
+
+            # Executa fora do lock
+            if restart_needed:
+                try:
                     self.restart_driver()
+                except Exception as e:
+                    logger.error(f"Watchdog falhou ao reiniciar driver: {e}")
 
 
     # ----------------------------------------------------------------------

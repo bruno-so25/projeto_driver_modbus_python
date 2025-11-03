@@ -10,7 +10,7 @@ Funções:
 - Expõe estatísticas de clientes (IP, leituras, escritas, tempo de conexão)
 """
 
-from threading import Thread
+from threading import Thread, local
 from datetime import datetime
 from pymodbus.server.sync import ModbusTcpServer
 from pymodbus.datastore import ModbusSequentialDataBlock, ModbusSlaveContext, ModbusServerContext
@@ -28,6 +28,9 @@ except ModuleNotFoundError:
 from core.config_loader import load_config
 from core.memory import Memory
 from core.logger import logger, get_debug_status
+import socketserver
+
+_client_context = local()
 
 
 # ----------------------------------------------------------------------
@@ -117,23 +120,27 @@ class TracedBitBlock(ModbusSequentialDataBlock):
         if self._server:
             self._server._update_connection_stats("unknown", is_write=True)
 
-
-# ----------------------------------------------------------------------
-# Subclasse do servidor Modbus que captura IPs dos clientes
-# ----------------------------------------------------------------------
-class TrackedModbusTcpServer(ModbusTcpServer):
+# ---------------------------------------------------------------------------
+# SubClasse de ModbusTcpServer com SO_REUSEADDR ativo.
+# Permite reutilizar endereço após ele ser fechado, sem esperar o TIME_WAIT
+# ---------------------------------------------------------------------------
+class TrackedReusableModbusTcpServer(ModbusTcpServer):
     """Intercepta requisições e registra o IP do cliente conectado."""
     def __init__(self, *args, parent_server=None, **kwargs):
         super().__init__(*args, **kwargs)
         self._parent_server = parent_server
 
-    def process_request(self, request, client_address):
-        """Captura o IP do cliente a cada requisição Modbus."""
+    def process_request_thread(self, request, client_address):
+        # captura o IP de cada cliente conectado
         if self._parent_server and client_address:
             ip = client_address[0] if isinstance(client_address, tuple) else str(client_address)
             self._parent_server._register_client_connection(ip)
-        return super().process_request(request, client_address)
-
+            _client_context.ip = ip
+        return super().process_request_thread(request, client_address)
+    
+    def server_bind(self):
+        self.socket.setsockopt(socketserver.socket.SOL_SOCKET, socketserver.socket.SO_REUSEADDR, 1)
+        super().server_bind()
 
 # ----------------------------------------------------------------------
 # Classe principal do servidor Modbus
@@ -158,12 +165,6 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
-        # Tamanhos por área
-        hr_count = len(self._memory.holding)
-        co_count = len(self._memory.coils)
-        di_count = len(self._memory.discrete_inputs)
-        ir_count = len(self._memory.input_registers)
-
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
         # ------------------------------------------------------------
@@ -187,7 +188,8 @@ class ModbusServer(Thread):
         di_block = TracedBitBlock(1, di_values, parent_server=self, area="DI")
 
         slave = ModbusSlaveContext(di=di_block, co=co_block, hr=hr_block, ir=ir_block)
-        self.context = ModbusServerContext(slaves=slave, single=True)
+        self.context = ModbusServerContext(slaves={self.unit_id: slave}, single=False)
+        logger.info(f"Servidor Modbus configurado com Unit ID = {self.unit_id}")
 
     # ------------------------------------------------------------------
 
@@ -201,10 +203,11 @@ class ModbusServer(Thread):
             identity.ProductName = self.config.get("DEVICE", "product_name", fallback="Modbus Driver")
             identity.MajorMinorRevision = self.config.get("DEVICE", "revision", fallback="1.0.0")
 
-            self._server_instance = ModbusTcpServer(
+            self._server_instance = TrackedReusableModbusTcpServer(
                 context=self.context,
                 identity=identity,
                 address=(self.host, self.port),
+                parent_server=self,
             )
             
             # Só muda pra True após conseguir instanciar o ModbusTcpServer
@@ -239,7 +242,7 @@ class ModbusServer(Thread):
     # ------------------------------------------------------------------
     def _register_client_connection(self, client_ip: str):
         """Registra novo cliente conectado."""
-        now = datetime.utcnow()
+        now = datetime.now().astimezone()
         if client_ip not in self.connections:
             self.connections[client_ip] = {
                 "ip": client_ip,
@@ -250,9 +253,10 @@ class ModbusServer(Thread):
             }
 
     # ------------------------------------------------------------------
-    def _update_connection_stats(self, client_ip: str, is_write: bool = False):
-        """Atualiza estatísticas de leitura/escrita."""
-        now = datetime.utcnow()
+    def _update_connection_stats(self, client_ip=None, is_write=False):
+        now = datetime.now().astimezone()
+        if not client_ip or client_ip == "unknown":
+            client_ip = getattr(_client_context, "ip", "unknown")  # <-- busca o IP da thread atual
         if client_ip not in self.connections:
             self._register_client_connection(client_ip)
         conn = self.connections[client_ip]
@@ -261,7 +265,6 @@ class ModbusServer(Thread):
             conn["writes"] += 1
         else:
             conn["reads"] += 1
-
 
 # ----------------------------------------------------------------------
 # Execução direta (teste isolado)
