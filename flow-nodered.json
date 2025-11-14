@@ -1,0 +1,451 @@
+[
+    {
+        "id": "a1347b0421f1451a",
+        "type": "tab",
+        "label": "Fluxo 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "1a3a597dd039fe0f",
+        "type": "file in",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "filename": "/config/settings.ini",
+        "filenameType": "str",
+        "format": "utf8",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "none",
+        "allProps": false,
+        "x": 230,
+        "y": 520,
+        "wires": [
+            [
+                "32a3fcc827e27974"
+            ]
+        ]
+    },
+    {
+        "id": "32a3fcc827e27974",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Parse INI",
+        "func": "// converte texto INI simples em objeto\nconst lines = msg.payload.split(/\\r?\\n/);\nlet section = null;\nconst cfg = {};\n\nfor (let line of lines) {\n    line = line.trim();\n    if (!line || line.startsWith('#')) continue;\n    if (line.startsWith('[') && line.endsWith(']')) {\n        section = line.slice(1, -1);\n        cfg[section] = {};\n    } else if (section && line.includes('=')) {\n        const [key, value] = line.split('=').map(s => s.trim());\n        cfg[section][key] = value;\n    }\n}\n//msg.payload = cfg;\n//return msg;\nconst flat = {};\nfor (const [section, values] of Object.entries(cfg)) {\n    for (const [k, v] of Object.entries(values)) {\n        flat[`${section}.${k}`] = v;\n    }\n}\nmsg.payload = flat;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 520,
+        "wires": [
+            [
+                "30d275abf721c22b"
+            ]
+        ]
+    },
+    {
+        "id": "30d275abf721c22b",
+        "type": "ui-form",
+        "z": "a1347b0421f1451a",
+        "name": "Configurações",
+        "group": "f17967b839308b8d",
+        "label": "",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "options": [
+            {
+                "label": "MODBUS Host",
+                "key": "MODBUS.host",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MODBUS Port",
+                "key": "MODBUS.port",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MODBUS ID",
+                "key": "MODBUS.unit_id",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MEMORY Default Value (Initialization)",
+                "key": "MEMORY.default_value",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MEMORY - Holding Registers Quantity",
+                "key": "MEMORY.hr_count",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MEMORY - Coil Register Quantity",
+                "key": "MEMORY.coil_count",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MEMORY - Digital Input Quantity",
+                "key": "MEMORY.di_count",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "MEMORY - Input Register Quantity",
+                "key": "MEMORY.ir_count",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "API - Host Address",
+                "key": "API.host",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "API - Port",
+                "key": "API.port",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "DEVICE - Vendor Name",
+                "key": "DEVICE.vendor_name",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "DEVICE - Product Code",
+                "key": "DEVICE.product_code",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "DEVICE - Vendor URL",
+                "key": "DEVICE.vendor_url",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "DEVICE - Product Name",
+                "key": "DEVICE.product_name",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "DEVICE - Revision",
+                "key": "DEVICE.revision",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "WATCHDOG - Enable",
+                "key": "WATCHDOG.enabled",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "WATCHDOG - Interval Seconds",
+                "key": "WATCHDOG.interval_seconds",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Level",
+                "key": "LOGGING.level",
+                "type": "dropdown",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Log Max",
+                "key": "LOGGING.log_max",
+                "type": "number",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Log File",
+                "key": "LOGGING.log_file",
+                "type": "text",
+                "required": false,
+                "rows": null
+            }
+        ],
+        "formValue": {
+            "MODBUS.host": "",
+            "MODBUS.port": "",
+            "MODBUS.unit_id": "",
+            "MEMORY.default_value": "",
+            "MEMORY.hr_count": "",
+            "MEMORY.coil_count": "",
+            "MEMORY.di_count": "",
+            "MEMORY.ir_count": "",
+            "API.host": "",
+            "API.port": "",
+            "DEVICE.vendor_name": "",
+            "DEVICE.product_code": "",
+            "DEVICE.vendor_url": "",
+            "DEVICE.product_name": "",
+            "DEVICE.revision": "",
+            "WATCHDOG.enabled": "",
+            "WATCHDOG.interval_seconds": "",
+            "LOGGING.level": "",
+            "LOGGING.log_max": "",
+            "LOGGING.log_file": ""
+        },
+        "payload": "",
+        "submit": "Salvar",
+        "cancel": "",
+        "resetOnSubmit": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "splitLayout": true,
+        "className": "",
+        "passthru": false,
+        "dropdownOptions": [
+            {
+                "dropdown": "LOGGING.level",
+                "value": "info",
+                "label": "INFO"
+            },
+            {
+                "dropdown": "LOGGING.level",
+                "value": "debug",
+                "label": "DEBUG"
+            }
+        ],
+        "x": 620,
+        "y": 520,
+        "wires": [
+            [
+                "d55726444dc23330"
+            ]
+        ]
+    },
+    {
+        "id": "623ba6c94f7a0355",
+        "type": "ui-event",
+        "z": "a1347b0421f1451a",
+        "ui": "89374a09164b1756",
+        "name": "",
+        "x": 70,
+        "y": 320,
+        "wires": [
+            [
+                "ae557aba8ef23003"
+            ]
+        ]
+    },
+    {
+        "id": "ae557aba8ef23003",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "$pageview",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 110,
+        "y": 380,
+        "wires": [
+            [
+                "2ba3df482990b2ee"
+            ]
+        ]
+    },
+    {
+        "id": "2ba3df482990b2ee",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "payload.page.path",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "/config",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 150,
+        "y": 440,
+        "wires": [
+            [
+                "1a3a597dd039fe0f"
+            ]
+        ]
+    },
+    {
+        "id": "d55726444dc23330",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Build INI",
+        "func": "// msg.payload vem no formato achatado, exemplo:\n// { \"MODBUS.port\": 5020, \"LOGGING.level\": \"INFO\", ... }\n\nconst flat = msg.payload;\nconst sections = {};\n\n// reorganiza por seção\nfor (const [key, value] of Object.entries(flat)) {\n    const [section, param] = key.split(\".\");\n    if (!sections[section]) sections[section] = {};\n    sections[section][param] = value;\n}\n\n// monta texto do arquivo INI\nlet iniText = \"# Arquivo de configurações do driver modbus python.\\n\";\niniText += \"# Gerado automaticamente pelo Node-RED Dashboard.\\n\\n\";\n\nfor (const [section, params] of Object.entries(sections)) {\n    iniText += `[${section}]\\n`;\n    for (const [param, val] of Object.entries(params)) {\n        iniText += `${param} = ${val}\\n`;\n    }\n    iniText += \"\\n\";\n}\n\nmsg.payload = iniText;\nmsg.filename = \"/config/settings.ini\";\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 520,
+        "wires": [
+            [
+                "c9c205a3b1de3526"
+            ]
+        ]
+    },
+    {
+        "id": "c9c205a3b1de3526",
+        "type": "file",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "filename": "/config2/settings.ini",
+        "filenameType": "str",
+        "appendNewline": false,
+        "createDir": false,
+        "overwriteFile": "true",
+        "encoding": "none",
+        "x": 1090,
+        "y": 520,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f17967b839308b8d",
+        "type": "ui-group",
+        "name": "Configurações",
+        "page": "36ec0f926f56a615",
+        "width": "12",
+        "height": "1",
+        "order": 1,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "89374a09164b1756",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "36ec0f926f56a615",
+        "type": "ui-page",
+        "name": "Configurações",
+        "ui": "89374a09164b1756",
+        "path": "/config",
+        "icon": "config",
+        "layout": "grid",
+        "theme": "a61fbb68ad368235",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 2,
+        "className": "",
+        "visible": true,
+        "disabled": false
+    },
+    {
+        "id": "a61fbb68ad368235",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "04ac39fb57868157",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.29.0"
+        }
+    }
+]
