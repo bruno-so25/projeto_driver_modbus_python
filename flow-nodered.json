@@ -19,7 +19,7 @@
         "sendError": false,
         "encoding": "none",
         "allProps": false,
-        "x": 230,
+        "x": 410,
         "y": 520,
         "wires": [
             [
@@ -39,11 +39,11 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 420,
+        "x": 600,
         "y": 520,
         "wires": [
             [
-                "30d275abf721c22b"
+                "9ca9f4b51337be12"
             ]
         ]
     },
@@ -51,7 +51,7 @@
         "id": "30d275abf721c22b",
         "type": "ui-form",
         "z": "a1347b0421f1451a",
-        "name": "Configurações",
+        "name": "Configurações do Driver",
         "group": "f17967b839308b8d",
         "label": "",
         "order": 1,
@@ -62,140 +62,112 @@
                 "label": "MODBUS Host",
                 "key": "MODBUS.host",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MODBUS Port",
                 "key": "MODBUS.port",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MODBUS ID",
                 "key": "MODBUS.unit_id",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MEMORY Default Value (Initialization)",
                 "key": "MEMORY.default_value",
-                "type": "text",
-                "required": false,
+                "type": "number",
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MEMORY - Holding Registers Quantity",
                 "key": "MEMORY.hr_count",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MEMORY - Coil Register Quantity",
                 "key": "MEMORY.coil_count",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MEMORY - Digital Input Quantity",
                 "key": "MEMORY.di_count",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "MEMORY - Input Register Quantity",
                 "key": "MEMORY.ir_count",
                 "type": "number",
-                "required": false,
-                "rows": null
-            },
-            {
-                "label": "API - Host Address",
-                "key": "API.host",
-                "type": "text",
-                "required": false,
-                "rows": null
-            },
-            {
-                "label": "API - Port",
-                "key": "API.port",
-                "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "DEVICE - Vendor Name",
                 "key": "DEVICE.vendor_name",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "DEVICE - Product Code",
                 "key": "DEVICE.product_code",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "DEVICE - Vendor URL",
                 "key": "DEVICE.vendor_url",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "DEVICE - Product Name",
                 "key": "DEVICE.product_name",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "DEVICE - Revision",
                 "key": "DEVICE.revision",
                 "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
                 "label": "WATCHDOG - Enable",
                 "key": "WATCHDOG.enabled",
-                "type": "text",
-                "required": false,
+                "type": "dropdown",
+                "required": true,
                 "rows": null
             },
             {
                 "label": "WATCHDOG - Interval Seconds",
                 "key": "WATCHDOG.interval_seconds",
                 "type": "number",
-                "required": false,
+                "required": true,
                 "rows": null
             },
             {
-                "label": "LOGGING - Level",
-                "key": "LOGGING.level",
-                "type": "dropdown",
-                "required": false,
-                "rows": null
-            },
-            {
-                "label": "LOGGING - Log Max",
-                "key": "LOGGING.log_max",
+                "label": "WATCHDOG - Max Retries",
+                "key": "WATCHDOG.max_retries",
                 "type": "number",
-                "required": false,
-                "rows": null
-            },
-            {
-                "label": "LOGGING - Log File",
-                "key": "LOGGING.log_file",
-                "type": "text",
-                "required": false,
+                "required": true,
                 "rows": null
             }
         ],
@@ -208,8 +180,6 @@
             "MEMORY.coil_count": "",
             "MEMORY.di_count": "",
             "MEMORY.ir_count": "",
-            "API.host": "",
-            "API.port": "",
             "DEVICE.vendor_name": "",
             "DEVICE.product_code": "",
             "DEVICE.vendor_url": "",
@@ -217,9 +187,7 @@
             "DEVICE.revision": "",
             "WATCHDOG.enabled": "",
             "WATCHDOG.interval_seconds": "",
-            "LOGGING.level": "",
-            "LOGGING.log_max": "",
-            "LOGGING.log_file": ""
+            "WATCHDOG.max_retries": ""
         },
         "payload": "",
         "submit": "Salvar",
@@ -232,21 +200,21 @@
         "passthru": false,
         "dropdownOptions": [
             {
-                "dropdown": "LOGGING.level",
-                "value": "info",
-                "label": "INFO"
+                "dropdown": "WATCHDOG.enabled",
+                "value": "true",
+                "label": "True"
             },
             {
-                "dropdown": "LOGGING.level",
-                "value": "debug",
-                "label": "DEBUG"
+                "dropdown": "WATCHDOG.enabled",
+                "value": "false",
+                "label": "False"
             }
         ],
-        "x": 620,
-        "y": 520,
+        "x": 1310,
+        "y": 540,
         "wires": [
             [
-                "d55726444dc23330"
+                "09dac6d266146a5b"
             ]
         ]
     },
@@ -256,7 +224,7 @@
         "z": "a1347b0421f1451a",
         "ui": "89374a09164b1756",
         "name": "",
-        "x": 70,
+        "x": 250,
         "y": 320,
         "wires": [
             [
@@ -281,7 +249,7 @@
         "checkall": "true",
         "repair": false,
         "outputs": 1,
-        "x": 110,
+        "x": 290,
         "y": 380,
         "wires": [
             [
@@ -306,7 +274,7 @@
         "checkall": "true",
         "repair": false,
         "outputs": 1,
-        "x": 150,
+        "x": 330,
         "y": 440,
         "wires": [
             [
@@ -319,15 +287,15 @@
         "type": "function",
         "z": "a1347b0421f1451a",
         "name": "Build INI",
-        "func": "// msg.payload vem no formato achatado, exemplo:\n// { \"MODBUS.port\": 5020, \"LOGGING.level\": \"INFO\", ... }\n\nconst flat = msg.payload;\nconst sections = {};\n\n// reorganiza por seção\nfor (const [key, value] of Object.entries(flat)) {\n    const [section, param] = key.split(\".\");\n    if (!sections[section]) sections[section] = {};\n    sections[section][param] = value;\n}\n\n// monta texto do arquivo INI\nlet iniText = \"# Arquivo de configurações do driver modbus python.\\n\";\niniText += \"# Gerado automaticamente pelo Node-RED Dashboard.\\n\\n\";\n\nfor (const [section, params] of Object.entries(sections)) {\n    iniText += `[${section}]\\n`;\n    for (const [param, val] of Object.entries(params)) {\n        iniText += `${param} = ${val}\\n`;\n    }\n    iniText += \"\\n\";\n}\n\nmsg.payload = iniText;\nmsg.filename = \"/config/settings.ini\";\nreturn msg;\n",
+        "func": "// Recupera a configuração oficial completa do flow\nconst flat = flow.get(\"SETTINGS\") || {};\n\nconst sections = {};\n\n// Reorganiza em seções\nfor (const [key, value] of Object.entries(flat)) {\n    const [section, param] = key.split(\".\");\n    if (!sections[section]) {\n        sections[section] = {};\n    }\n    sections[section][param] = value;\n}\n\n// Monta texto do INI\nlet iniText = \"# Arquivo de configurações do driver modbus python.\\n\";\niniText += \"# Gerado automaticamente pelo Node-RED Dashboard.\\n\\n\";\n\nfor (const [section, params] of Object.entries(sections)) {\n    iniText += `[${section}]\\n`;\n    for (const [param, val] of Object.entries(params)) {\n        iniText += `${param} = ${val}\\n`;\n    }\n    iniText += \"\\n\";\n}\n\nmsg.payload = iniText;\nmsg.filename = \"/config/settings.ini\";\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 860,
-        "y": 520,
+        "x": 2480,
+        "y": 840,
         "wires": [
             [
                 "c9c205a3b1de3526"
@@ -339,27 +307,479 @@
         "type": "file",
         "z": "a1347b0421f1451a",
         "name": "",
-        "filename": "/config2/settings.ini",
-        "filenameType": "str",
+        "filename": "filename",
+        "filenameType": "msg",
         "appendNewline": false,
         "createDir": false,
         "overwriteFile": "true",
         "encoding": "none",
-        "x": 1090,
-        "y": 520,
+        "x": 2710,
+        "y": 840,
         "wires": [
+            [
+                "442f2b1264819583"
+            ]
+        ]
+    },
+    {
+        "id": "77b4b6403f12170e",
+        "type": "ui-form",
+        "z": "a1347b0421f1451a",
+        "name": "Configurações do Serviço",
+        "group": "2d2153540f83d2ad",
+        "label": "",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "options": [
+            {
+                "label": "API - Host Address",
+                "key": "API.host",
+                "type": "text",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "API - Port",
+                "key": "API.port",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Level",
+                "key": "LOGGING.level",
+                "type": "dropdown",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Log Max",
+                "key": "LOGGING.log_max",
+                "type": "number",
+                "required": true,
+                "rows": null
+            },
+            {
+                "label": "LOGGING - Log File",
+                "key": "LOGGING.log_file",
+                "type": "text",
+                "required": true,
+                "rows": null
+            }
+        ],
+        "formValue": {
+            "API.host": "",
+            "API.port": "",
+            "LOGGING.level": "",
+            "LOGGING.log_max": "",
+            "LOGGING.log_file": ""
+        },
+        "payload": "",
+        "submit": "Salvar",
+        "cancel": "",
+        "resetOnSubmit": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "splitLayout": true,
+        "className": "",
+        "passthru": false,
+        "dropdownOptions": [
+            {
+                "dropdown": "LOGGING.level",
+                "value": "INFO",
+                "label": "Info"
+            },
+            {
+                "dropdown": "LOGGING.level",
+                "value": "DEBUG",
+                "label": "Debug"
+            },
+            {
+                "dropdown": "",
+                "value": "true",
+                "label": "true"
+            },
+            {
+                "dropdown": "",
+                "value": "false",
+                "label": "false"
+            }
+        ],
+        "x": 1310,
+        "y": 620,
+        "wires": [
+            [
+                "731d1584d5466f94"
+            ]
+        ]
+    },
+    {
+        "id": "c809eed61b74864b",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Salva FORM1 no flow",
+        "func": "// SETTINGS: configurações oficiais atuais\nlet settings = flow.get(\"SETTINGS\") || {};\n\n// SETTINGS_TEMP: apenas as chaves alteradas pelo form1\nconst temp = flow.get(\"SETTINGS_TEMP\") || {};\n\n// Aplica apenas o que veio do form1, sem perder o resto\nfor (const [key, value] of Object.entries(temp)) {\n    settings[key] = value;\n}\n\n// Atualiza SETTINGS definitivo e limpa TEMP\nflow.set(\"SETTINGS\", settings);\nflow.set(\"SETTINGS_TEMP\", null);\n\n// Agora vamos mandar o objeto COMPLETO para o BUILD INI\nmsg.payload = settings;\nmsg.valid = true;  // se você quiser reaproveitar no fluxo\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2140,
+        "y": 780,
+        "wires": [
+            [
+                "d55726444dc23330"
+            ]
+        ]
+    },
+    {
+        "id": "9ca9f4b51337be12",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Salva Configs no flow",
+        "func": "flow.set(\"SETTINGS\", msg.payload);\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 580,
+        "wires": [
+            [
+                "1410ddaf3b37b2e4",
+                "02adefe7bcab2ff5"
+            ]
+        ]
+    },
+    {
+        "id": "1410ddaf3b37b2e4",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Prepara Dados FORM1",
+        "func": "const flat = flow.get(\"SETTINGS\") || {};\n\nmsg.payload = {\n    \"MODBUS.host\": flat[\"MODBUS.host\"] || \"\",\n    \"MODBUS.port\": flat[\"MODBUS.port\"] || \"\",\n    \"MODBUS.unit_id\": flat[\"MODBUS.unit_id\"] || \"\",\n\n    \"DEVICE.vendor_name\": flat[\"DEVICE.vendor_name\"] || \"\",\n    \"DEVICE.product_code\": flat[\"DEVICE.product_code\"] || \"\",\n    \"DEVICE.vendor_url\": flat[\"DEVICE.vendor_url\"] || \"\",\n    \"DEVICE.product_name\": flat[\"DEVICE.product_name\"] || \"\",\n    \"DEVICE.revision\": flat[\"DEVICE.revision\"] || \"\",\n\n    \"MEMORY.default_value\": flat[\"MEMORY.default_value\"] || \"\",\n    \"MEMORY.hr_count\": flat[\"MEMORY.hr_count\"] || \"\",\n    \"MEMORY.coil_count\": flat[\"MEMORY.coil_count\"] || \"\",\n    \"MEMORY.di_count\": flat[\"MEMORY.di_count\"] || \"\",\n    \"MEMORY.ir_count\": flat[\"MEMORY.ir_count\"] || \"\",\n\n    \"WATCHDOG.enabled\": flat[\"WATCHDOG.enabled\"] || \"\",\n    \"WATCHDOG.max_retries\": flat[\"WATCHDOG.max_retries\"] || \"\",\n    \"WATCHDOG.interval_seconds\": flat[\"WATCHDOG.interval_seconds\"] || \"\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 540,
+        "wires": [
+            [
+                "30d275abf721c22b"
+            ]
+        ]
+    },
+    {
+        "id": "02adefe7bcab2ff5",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Prepara Dados FORM2",
+        "func": "const flat2 = flow.get(\"SETTINGS\") || {};\nmsg.payload = {\n    \"API.host\": flat2[\"API.host\"],\n    \"API.port\": flat2[\"API.port\"],\n\n    \"LOGGING.level\": flat2[\"LOGGING.level\"],\n    \"LOGGING.log_file\": flat2[\"LOGGING.log_file\"],\n    \"LOGGING.log_max\": flat2[\"LOGGING.log_max\"]\n\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 620,
+        "wires": [
+            [
+                "77b4b6403f12170e"
+            ]
+        ]
+    },
+    {
+        "id": "731d1584d5466f94",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Salva FORM2 no flow",
+        "func": "// Primeiro valida IP\nconst flat = msg.payload;\n// --- Validação dos IPs ---\nfunction isValidIP(ip) {\n    return /^(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$/.test(ip);\n}\n\nconst ipFields = [\"API.host\"];\nfor (const field of ipFields) {\n    const val = flat[field];\n    if (!isValidIP(val)) {\n        node.status({ fill: \"red\", shape: \"dot\", text: `IP inválido em ${field}: ${val}` });\n        msg.payload = `Endereço IP inválido no campo ${field}: ${val}`;\n        msg.level = \"error\";  // opcional: usado pelo ui-notification\n        msg.valid = false;\n        return msg;  // interrompe execução e não grava arquivo\n    }\n}\n\n// Pega o objeto completo salvo no flow\nlet settings = flow.get(\"SETTINGS\") || {};\n\n// Atualiza apenas as chaves que vieram do form\nfor (const [key, value] of Object.entries(msg.payload)) {\n    settings[key] = value;   // substitui só a parte desse formulário\n}\n\n// Salva o objeto inteiro atualizado no flow\nflow.set(\"SETTINGS\", settings);\n\n// Envia o SETTINGS completo adiante\nmsg.payload = settings;\nmsg.form = 2;\nmsg.valid = true;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1580,
+        "y": 840,
+        "wires": [
+            [
+                "90778595c3e4e188"
+            ]
+        ]
+    },
+    {
+        "id": "73321f766ac48b35",
+        "type": "ui-notification",
+        "z": "a1347b0421f1451a",
+        "ui": "89374a09164b1756",
+        "position": "center center",
+        "colorDefault": false,
+        "color": "#4d9afe",
+        "displayTime": "0",
+        "showCountdown": false,
+        "outputs": 1,
+        "allowDismiss": true,
+        "dismissText": "Cancelar",
+        "allowConfirm": true,
+        "confirmText": "Confirmar",
+        "raw": false,
+        "className": "",
+        "name": "Confimar",
+        "x": 2060,
+        "y": 540,
+        "wires": [
+            [
+                "228f0260821f0e35"
+            ]
+        ]
+    },
+    {
+        "id": "09dac6d266146a5b",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Salva FORM1 temporariamente",
+        "func": "// Primeiro valida IP\nconst flat = msg.payload;\n// --- Validação dos IPs ---\nfunction isValidIP(ip) {\n    return /^(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$/.test(ip);\n}\n\nconst ipFields = [\"MODBUS.host\"];\nfor (const field of ipFields) {\n    const val = flat[field];\n    if (!isValidIP(val)) {\n        node.status({ fill: \"red\", shape: \"dot\", text: `IP inválido em ${field}: ${val}` });\n        msg.payload = `Endereço IP inválido no campo ${field}: ${val}`;\n        msg.level = \"error\";  // opcional: usado pelo ui-notification\n        msg.valid = false;\n        return msg;  // interrompe execução e não grava arquivo\n    }\n}\n\n\n// Pega o objeto completo salvo no flow\n//let settings = flow.get(\"SETTINGS\") || {};\nlet settings = { ...(flow.get(\"SETTINGS\") || {}) };\n\n\n// Atualiza apenas as chaves que vieram do form\nfor (const [key, value] of Object.entries(msg.payload)) {\n    settings[key] = value;   // substitui só a parte desse formulário\n}\n\n// Salva o objeto inteiro atualizado no flow\nflow.set(\"SETTINGS_TEMP\", settings);\n\n// Envia a mensagem de confirmação\nmsg.payload = \"Alterar as configurações do Driver Modbus irá reiniciar o driver. Esta ação reiniciará toda a memória do driver. Tem certeza que deseja prosseguir?\"\nmsg.form = 1;\nmsg.valid = true;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1590,
+        "y": 540,
+        "wires": [
+            [
+                "f0ea1eb68aeb1a60"
+            ]
+        ]
+    },
+    {
+        "id": "228f0260821f0e35",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "dismiss_clicked",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "confirm_clicked",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 2150,
+        "y": 660,
+        "wires": [
+            [
+                "414dd175e1be1feb"
+            ],
+            [
+                "c809eed61b74864b"
+            ]
+        ]
+    },
+    {
+        "id": "414dd175e1be1feb",
+        "type": "function",
+        "z": "a1347b0421f1451a",
+        "name": "Apaga o SETTINGS_TEMP",
+        "func": "// Limpa TEMP\nflow.set(\"SETTINGS_TEMP\", null);\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2360,
+        "y": 600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f0ea1eb68aeb1a60",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "valid",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "true"
+            },
+            {
+                "t": "false"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 1850,
+        "y": 540,
+        "wires": [
+            [
+                "73321f766ac48b35"
+            ],
+            [
+                "ab61dc46be28ab1d"
+            ]
+        ]
+    },
+    {
+        "id": "ab61dc46be28ab1d",
+        "type": "ui-notification",
+        "z": "a1347b0421f1451a",
+        "ui": "89374a09164b1756",
+        "position": "center center",
+        "colorDefault": false,
+        "color": "#ad0000",
+        "displayTime": "5",
+        "showCountdown": true,
+        "outputs": 1,
+        "allowDismiss": true,
+        "dismissText": "Fechar",
+        "allowConfirm": false,
+        "confirmText": "Confirm",
+        "raw": false,
+        "className": "",
+        "name": "Erro IP",
+        "x": 1900,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "90778595c3e4e188",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "valid",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "true"
+            },
+            {
+                "t": "false"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 1810,
+        "y": 840,
+        "wires": [
+            [
+                "d55726444dc23330"
+            ],
+            [
+                "e37bee9b68dafa76"
+            ]
+        ]
+    },
+    {
+        "id": "e37bee9b68dafa76",
+        "type": "ui-notification",
+        "z": "a1347b0421f1451a",
+        "ui": "89374a09164b1756",
+        "position": "center center",
+        "colorDefault": false,
+        "color": "#ad0000",
+        "displayTime": "5",
+        "showCountdown": true,
+        "outputs": 1,
+        "allowDismiss": true,
+        "dismissText": "Fechar",
+        "allowConfirm": false,
+        "confirmText": "Confirm",
+        "raw": false,
+        "className": "",
+        "name": "Erro IP",
+        "x": 1860,
+        "y": 920,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8e477828bf608807",
+        "type": "http request",
+        "z": "a1347b0421f1451a",
+        "name": "Requisita RESTART no Driver Modbus",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "http://172.26.129.196:8000/restart",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 3230,
+        "y": 660,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "442f2b1264819583",
+        "type": "switch",
+        "z": "a1347b0421f1451a",
+        "name": "",
+        "property": "form",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "1",
+                "vt": "num"
+            },
+            {
+                "t": "eq",
+                "v": "2",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 2910,
+        "y": 740,
+        "wires": [
+            [
+                "8e477828bf608807"
+            ],
             []
         ]
     },
     {
         "id": "f17967b839308b8d",
         "type": "ui-group",
-        "name": "Configurações",
+        "name": "Configurações do Driver Modbus (alterar essas configurações reiniciará o driver)",
         "page": "36ec0f926f56a615",
         "width": "12",
         "height": "1",
         "order": 1,
-        "showTitle": false,
+        "showTitle": true,
         "className": "",
         "visible": "true",
         "disabled": "false",
@@ -384,6 +804,20 @@
         "notificationDisplayTime": 1,
         "showDisconnectNotification": true,
         "allowInstall": false
+    },
+    {
+        "id": "2d2153540f83d2ad",
+        "type": "ui-group",
+        "name": "Configurações do Serviço",
+        "page": "36ec0f926f56a615",
+        "width": "12",
+        "height": 1,
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
     },
     {
         "id": "36ec0f926f56a615",
@@ -441,7 +875,7 @@
         }
     },
     {
-        "id": "04ac39fb57868157",
+        "id": "4ee19e45d9d74981",
         "type": "global-config",
         "env": [],
         "modules": {

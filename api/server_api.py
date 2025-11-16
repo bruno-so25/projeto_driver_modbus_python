@@ -155,7 +155,8 @@ def set_point(data: dict = Body(...)):
         # Atualiza o DataBlock Modbus que consequentemente sincroniza a Memory
         ctx = m.server.context
         if ctx:
-            slave = ctx[0] if hasattr(ctx, "__getitem__") else ctx
+            unit_id = m.server.unit_id
+            slave = ctx[unit_id] if not ctx.single else ctx
             if area == "HR":
                 slave.setValues(3, address, [value])
             elif area == "CO":

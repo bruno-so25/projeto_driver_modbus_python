@@ -60,6 +60,7 @@ class ModbusDriverManager:
             self._watchdog_interval = self.cfg.getint("WATCHDOG", "interval_seconds", fallback=10)
             self._watchdog_enabled = self.cfg.getboolean("WATCHDOG", "enabled", fallback=True)
             self._manual_stop = False
+            self._watchdog_max_retries = self.cfg.getint("WATCHDOG", "max_retries", fallback=5)
 
             try:
                 logger.info("Iniciando Servidor Modbus.")
@@ -95,7 +96,7 @@ class ModbusDriverManager:
                     return False
 
                 # --- Sucesso ---
-                self.start_time = datetime.utcnow()
+                self.start_time = datetime.now().astimezone()
                 self.stats["starts"] += 1
                 logger.info("Driver Modbus iniciado com sucesso.")
                 if self._watchdog_enabled:
@@ -144,27 +145,51 @@ class ModbusDriverManager:
         """Inicia o watchdog em thread separada."""
         if self._watchdog_active:
             return
+        self._watchdog_retry_count = 0
         self._watchdog_active = True
         self._watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self._watchdog_thread.start()
         logger.debug("Watchdog iniciado.")
 
     def _watchdog_loop(self):
-        """Monitora o servidor e reinicia em caso de falha não intencional."""
         while self._watchdog_active:
-            time.sleep(self._watchdog_interval)
+            try:
+                time.sleep(self._watchdog_interval)
+                restart_needed = False
+                logger.debug(f"Watchdog: \ndriver_running({self.server and self.server.is_running()})\nself._watchdog_retry_count({self._watchdog_retry_count})\nself._manual_stop({self._manual_stop})\nrestart_needed({restart_needed})\n\n")
 
-            # Verifica sob lock
-            restart_needed = False
-            with self._lock:
-                if not self.server or not self.server.is_running():
-                    if self._manual_stop:
-                        logger.debug("Watchdog detectou parada manual. Nenhuma ação necessária.")
+                with self._lock:
+                    driver_running = self.server and self.server.is_running()
+
+                    if driver_running:
+                        if self._watchdog_retry_count > 0:
+                            logger.info("Watchdog: servidor voltou ao normal, zerando contador.")
+                        self._watchdog_retry_count = 0
                         continue
-                    logger.warning("Watchdog detectou falha. Reiniciando servidor Modbus.")
+
+                    if self._manual_stop:
+                        logger.debug("Watchdog: parada manual detectada. Ignorando.")
+                        continue
+
+                    if self._watchdog_max_retries > 0 and \
+                    self._watchdog_retry_count >= self._watchdog_max_retries:
+                        logger.error(
+                            f"Watchdog atingiu o limite de {self._watchdog_max_retries} tentativas. "
+                            "Monitoramento encerrado."
+                        )
+                        self._watchdog_active = False
+                        break
+
+                    self._watchdog_retry_count += 1
+                    logger.warning(
+                        f"Watchdog detectou falha. Tentativa #{self._watchdog_retry_count} "
+                        f"de reiniciar o driver."
+                    )
                     restart_needed = True
 
-            # Executa fora do lock
+            except Exception as e:
+                logger.error(f"ERRO CRÍTICO DENTRO DO WATCHDOG: {e}")
+
             if restart_needed:
                 try:
                     self.restart_driver()
@@ -179,7 +204,7 @@ class ModbusDriverManager:
         """Retorna o status atual do driver."""
         uptime = None
         if self.start_time:
-            uptime = str(datetime.utcnow() - self.start_time).split(".")[0]
+            uptime = str(datetime.now().astimezone() - self.start_time).split(".")[0]
 
         connections = self.server.connections if self.server else {}
         status = {
