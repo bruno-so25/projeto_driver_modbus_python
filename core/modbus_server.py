@@ -29,6 +29,7 @@ from core.config_loader import load_config
 from core.memory import Memory
 from core.logger import logger, get_debug_status
 import socketserver
+import time
 
 _client_context = local()
 
@@ -165,6 +166,12 @@ class ModbusServer(Thread):
         self.timeout = self.config.getint("MODBUS", "timeout", fallback=5)
         self.unit_id = self.config.getint("MODBUS", "unit_id", fallback=1)
 
+        # Tempo máximo de inatividade (em segundos) para marcar pontos como STALE
+        self.point_quality_timeout = self.config.getint("MEMORY", "point_quality_timeout", fallback=0)
+        # Flag interna para evitar log repetitivo toda hora
+        self._stale_already_applied = False
+
+
         # ------------------------------------------------------------
         # Inicializa blocos a partir da memória compartilhada (Memory)
         # ------------------------------------------------------------
@@ -213,6 +220,9 @@ class ModbusServer(Thread):
             # Só muda pra True após conseguir instanciar o ModbusTcpServer
             self._running = True
             logger.info(f"Modbus Server iniciado em {self.host}:{self.port}")
+
+            # Inicia monitor de inatividade para marcar pontos STALE
+            self._start_quality_monitor()
 
             self._server_instance.serve_forever()
         except Exception as e:
@@ -265,6 +275,56 @@ class ModbusServer(Thread):
             conn["writes"] += 1
         else:
             conn["reads"] += 1
+    
+    def _get_last_activity(self):
+        """
+        Retorna o last_seen mais recente dentre todos os clientes,
+        ou None se não houver clientes registrados.
+        """
+        if not self.connections:
+            return None
+        return max(conn["last_seen"] for conn in self.connections.values())
+    
+    def _start_quality_monitor(self):
+        """
+        Inicia o monitor de inatividade para marcar pontos como STALE.
+        Se point_quality_timeout = 0, a feature fica desabilitada.
+        """
+
+        if self.point_quality_timeout <= 0:
+            logger.info("Monitor de STALE desabilitado (point_quality_timeout = 0).")
+            return  # <-- não inicia thread nenhuma
+
+        def monitor_loop():
+            while self._running:
+                try:
+                    now = datetime.now().astimezone()
+                    last_activity = self._get_last_activity()
+
+                    if last_activity is not None:
+                        elapsed = (now - last_activity).total_seconds()
+                        timeout_secs = self.point_quality_timeout
+
+                        if elapsed > timeout_secs:
+                            if not self._stale_already_applied:
+                                logger.debug(
+                                    f"Sem atividade Modbus há mais de {self.point_quality_timeout} segundos. "
+                                    "Marcando pontos OK como STALE."
+                                )
+                                self._memory.mark_all_ok_as_stale()
+                                self._stale_already_applied = True
+                        else:
+                            # houve atividade recente
+                            self._stale_already_applied = False
+
+                    time.sleep(5)
+
+                except Exception as e:
+                    logger.error(f"Erro no monitor de qualidade (STALE): {e}")
+                    time.sleep(5)
+
+        Thread(target=monitor_loop, daemon=True).start()
+        logger.info(f"Monitor de STALE iniciado (timeout = {self.point_quality_timeout} segundos)")
 
 # ----------------------------------------------------------------------
 # Execução direta (teste isolado)

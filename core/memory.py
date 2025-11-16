@@ -109,6 +109,21 @@ class Memory:
                 for addr, data in table.items()
                 if data["timestamp"] > since
             }
+        
+    def mark_all_ok_as_stale(self):
+        """
+        Marca como STALE todos os pontos que estão com qualidade OK.
+        Não mexe em UNKNOWN, BAD, etc.
+        """
+        now = datetime.now().astimezone()
+
+        with self._lock:
+            for area_name in ("HR", "CO", "DI", "IR"):
+                table = self._get_table(area_name)
+                for addr, data in table.items():
+                    if data["quality"] == PointQuality.OK:
+                        data["quality"] = PointQuality.STALE
+                        data["timestamp"] = now
 
 
 # Teste local
