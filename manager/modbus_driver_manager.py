@@ -156,7 +156,7 @@ class ModbusDriverManager:
             try:
                 time.sleep(self._watchdog_interval)
                 restart_needed = False
-                logger.debug(f"Watchdog: \ndriver_running({self.server and self.server.is_running()})\nself._watchdog_retry_count({self._watchdog_retry_count})\nself._manual_stop({self._manual_stop})\nrestart_needed({restart_needed})\n\n")
+                #logger.debug(f"Watchdog: \ndriver_running({self.server and self.server.is_running()})\nself._watchdog_retry_count({self._watchdog_retry_count})\nself._manual_stop({self._manual_stop})\nrestart_needed({restart_needed})\n\n")
 
                 with self._lock:
                     driver_running = self.server and self.server.is_running()
