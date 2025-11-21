@@ -152,6 +152,12 @@ def set_point(data: dict = Body(...)):
         address = int(data["address"])
         value = int(data["value"])
 
+        # Verifica se o valor de value é positivo/negativo dentro da faixa limite e adequa se necessário
+        if value < -32768 or value > 65535:
+            return JSONResponse(status_code=400, content={"error": f"O valor está fora do range aceitável."})
+        if value < 0:
+            value = 65536 + value
+
         # Atualiza o DataBlock Modbus que consequentemente sincroniza a Memory
         ctx = m.server.context
         if ctx:
